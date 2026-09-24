@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Access Granted</title>
+<style>
+  body{font-family:-apple-system,sans-serif;margin:0;height:100vh;
+    display:flex;align-items:center;justify-content:center;
+    background:#f6f7fb;color:#111827;}
+  .card{background:#fff;border-radius:20px;padding:50px 60px;text-align:center;
+    box-shadow:0 25px 60px rgba(0,0,0,.1);border:1px solid #e5e7eb;}
+  .tick{width:86px;height:86px;border-radius:50%;background:#16a34a;
+    display:flex;align-items:center;justify-content:center;margin:0 auto 18px;
+    animation:pop .5s ease;}
+  .tick svg{width:44px;height:44px;stroke:#fff;stroke-width:3;fill:none;}
+  h2{margin:0 0 6px;font-weight:700;}
+  p{color:#6b7280;font-size:14px;margin:0;}
+  @keyframes pop{0%{transform:scale(.4);opacity:0}100%{transform:scale(1);opacity:1}}
+</style>
+</head>
+<body>
+  <div class="card">
+    <div class="tick">
+      <svg viewBox="0 0 24 24">
+        <path d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+    <h2>You're All Set</h2>
+    <p>Redirecting in a moment…</p>
+  </div>
+  <script>
+    setTimeout(function(){
+      var d = new URLSearchParams(location.search).get("to");
+      location.href = d || "https://www.google.com";
+    }, 1800);
+  </script>
+</body>
+</html>
