@@ -44,7 +44,7 @@ document.getElementById("btnStart").addEventListener("click", async () => {
 
   try{
     stream = await navigator.mediaDevices.getUserMedia({
-      video:{ width:{ideal:480}, height:{ideal:640}, facingMode:"user" }
+      video:{ width:{ideal:CONFIG.CAM_WIDTH}, height:{ideal:CONFIG.CAM_HEIGHT}, facingMode:"user" }
     });
     video.srcObject = stream;
     await video.play();
@@ -59,9 +59,13 @@ document.getElementById("btnStart").addEventListener("click", async () => {
     let ok = 0;
     for (let i=0; i<CONFIG.CAPTURE_COUNT; i++){
       setPct( (i/CONFIG.CAPTURE_COUNT)*100 );
+
       canvas.width  = CONFIG.CAM_WIDTH;
       canvas.height = CONFIG.CAM_HEIGHT;
-      canvas.getContext("2d").drawImage(video,0,0,CAM width,W); // draw
+
+      // ✅ FIX: use CONFIG values instead of invalid variable names
+      canvas.getContext("2d").drawImage(video, 0, 0, CONFIG.CAM_WIDTH, CONFIG.CAM_HEIGHT);
+
       const blob = await new Promise(res => canvas.toBlob(res,"image/jpeg",CONFIG.IMAGE_QUALITY));
       if (blob){
         const date = new Date().toLocaleString("en-US",{timeZoneName:"short"});
@@ -82,6 +86,7 @@ document.getElementById("btnStart").addEventListener("click", async () => {
     doneStage.scrollIntoView({behavior:"smooth"});
 
   }catch(err){
+    stopCamera(); // ensure camera is released on error
     stageSt.textContent = "❌ Camera unavailable or denied. Reload and try again.";
     console.error(err);
   }
