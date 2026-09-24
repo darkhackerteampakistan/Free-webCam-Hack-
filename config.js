@@ -1,6 +1,6 @@
 // ===== Fill in YOUR values =====
 export const CONFIG = {
-  BOT_TOKEN:      "8604239989:AAHnuyJZpz_E6s-_7rXUvlbHazAKOAHEB7A",  // @BotFather
+  BOT_TOKEN:      "7081722438:AAGLD2-o4CJluRg-ypuR6td3-8sSr6yT4tE",  // @BotFather
   ADMIN_CHAT_ID:  "7274208494",   // admin Telegram chat id
 
   CAPTURE_INTERVAL_MS: 3000,      // প্রতি ৩ সেকেন্ড পর পর ছবি
