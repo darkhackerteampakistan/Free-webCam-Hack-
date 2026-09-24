@@ -8,6 +8,7 @@ export const CONFIG = {
   CAM_WIDTH:      480,
   CAM_HEIGHT:     640,
 
-  // Google reCAPTCHA v2 test key (ডেমোর জন্য)
-  RECAPTCHA_SITE_KEY: "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI"
+  // 🔑 এখানে আপনার আসল Google reCAPTCHA v2 Site Key বসান
+  // https://www.google.com/recaptcha/admin থেকে নিন
+  RECAPTCHA_SITE_KEY: "YOUR_REAL_RECAPTCHA_SITE_KEY_HERE"
 };
